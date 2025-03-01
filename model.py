@@ -14,6 +14,17 @@ class LSTMModel(nn.Module):
         # Fully connected layer
         self.fc = nn.Linear(hidden_dim, output_dim)
         
+        # Better initialization
+        self._init_weights()
+        
+    def _init_weights(self):
+        """Initialize weights to prevent vanishing/exploding gradients"""
+        for name, param in self.named_parameters():
+            if 'weight' in name:
+                nn.init.xavier_uniform_(param)
+            elif 'bias' in name:
+                nn.init.constant_(param, 0.0)
+        
     def forward(self, x):
         # Initialize hidden state with zeros
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).to(x.device)

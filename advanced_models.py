@@ -97,20 +97,100 @@ class ModelTrainer:
             criterion = nn.MSELoss()
             optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
             
+            # Add learning rate scheduler for adaptive learning rate
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, mode='min', factor=0.5, patience=5, verbose=True
+            )
+            
+            # Initialize tracking variables
+            best_loss = float('inf')
+            patience_counter = 0
+            max_patience = 10  # Early stopping threshold
+            
             # Training loop
             self.model.train()
             for epoch in range(epochs):
                 total_loss = 0
+                nan_detected = False
+                
                 for X_batch, y_batch in dataloader:
+                    # Check for NaN values in input
+                    if torch.isnan(X_batch).any() or torch.isnan(y_batch).any():
+                        print(f"Warning: NaN values in input batch. Skipping.")
+                        continue
+                    
                     optimizer.zero_grad()
                     outputs = self.model(X_batch)
+                    
+                    # Check for NaN in outputs
+                    if torch.isnan(outputs).any():
+                        print(f"Warning: NaN values in model output during epoch {epoch+1}. Attempting recovery.")
+                        nan_detected = True
+                        break
+                    
                     loss = criterion(outputs, y_batch)
+                    
+                    # Check for NaN loss
+                    if torch.isnan(loss).item():
+                        print(f"Warning: NaN loss in epoch {epoch+1}. Attempting recovery.")
+                        nan_detected = True
+                        break
+                    
                     loss.backward()
+                    
+                    # Apply gradient clipping to prevent exploding gradients
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                    
                     optimizer.step()
                     total_loss += loss.item()
                 
+                # Handle NaN detection
+                if nan_detected:
+                    print("NaN values detected. Reinitializing weights and reducing learning rate.")
+                    # Reinitialize the model
+                    if self.model_type == 'lstm':
+                        input_dim = self.model.lstm.input_size
+                        hidden_dim = self.model.lstm.hidden_size
+                        num_layers = self.model.lstm.num_layers
+                        self.model = LSTMModel(input_dim, hidden_dim, num_layers, 1).to(self.device)
+                    elif self.model_type == 'transformer':
+                        # Recreate transformer with more stable initialization
+                        d_model = self.model.input_projection.out_features
+                        input_dim = self.model.input_projection.in_features
+                        self.model = TransformerModel(
+                            input_dim=input_dim,
+                            d_model=d_model,
+                            nhead=4,
+                            num_layers=2,
+                            dim_feedforward=d_model*4,
+                            output_dim=1,
+                            dropout=0.1
+                        ).to(self.device)
+                    
+                    # Reset optimizer with lower learning rate
+                    learning_rate *= 0.5
+                    print(f"New learning rate: {learning_rate}")
+                    optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+                    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+                    continue
+                
+                # Print statistics
+                avg_loss = total_loss / len(dataloader)
                 if (epoch + 1) % 10 == 0:
-                    print(f'Epoch [{epoch+1}/{epochs}], Loss: {total_loss/len(dataloader):.4f}')
+                    print(f'Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}')
+                
+                # Update scheduler
+                scheduler.step(avg_loss)
+                
+                # Early stopping check
+                if avg_loss < best_loss:
+                    best_loss = avg_loss
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                    if patience_counter >= max_patience:
+                        print(f"Early stopping triggered at epoch {epoch+1}")
+                        break
         
         else:  # For sklearn models
             # For classification, convert continuous targets to binary (up/down)
@@ -125,7 +205,7 @@ class ModelTrainer:
                 X_reshaped = self.imputer.fit_transform(X_reshaped)
             
             self.model.fit(X_reshaped, y_binary)
-    
+            
     def predict(self, X):
         if self.model_type in ['lstm', 'transformer']:
             self.model.eval()

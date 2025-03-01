@@ -135,7 +135,8 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(f'{symbol}_predictions.png')
-    plt.close()  # Close to prevent display in notebooksreturn {
+    plt.close()  # Close to prevent display in notebooksreturn 
+    {
         'models': models,
         'signals': signals,
         'processor': processor
