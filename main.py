@@ -20,7 +20,7 @@ import seaborn as sns
 
 def main():
     # Define parameters
-    symbols = ['SPY']
+    symbol = 'AAPL'
     start_date = '2018-01-01'  # Extended training period
     end_date = '2023-01-01'
     
@@ -30,63 +30,22 @@ def main():
     
     # 1. Fetch market data and basic analysis
     print("Fetching market data...")
-    data = fetch_market_data(symbols, start_date, end_date)
-    # print(data)
+    data = fetch_market_data(symbol, start_date, end_date)
     
-    # Process data for the first symbol
-    if symbols[0] in data:
-        print(f"Processing data for {symbols[0]}...")
-        processed_data = create_features(data[symbols[0]])
-        
-        # Data quality check
-        # data_quality = DataQualityCheck()
-        # print("\n==== PERFORMING DATA QUALITY CHECK ====")
-        # quality_report = data_quality.check_dataframe(processed_data, name="Processed Data")
-        # if data_quality.issues_found:
-        #     print("Fixing data quality issues...")
-        #     processed_data = data_quality.fix_dataframe(processed_data, impute_method='mean', inplace=False)
-        #     print("Data quality issues fixed.")
-        #     data_quality.visualize_missing_data(processed_data)
-        
-        # # Display the first few rows
-        # print(processed_data.head())
-        # print(processed_data.info())
-        
-        # # Plot some basic features
-        # plt.figure(figsize=(12, 6))
-        # plt.subplot(2, 1, 1)
-        # plt.plot(processed_data.index, processed_data['Close'], label='Close Price')
-        # plt.plot(processed_data.index, processed_data['MA_20'], label='20-day MA')
-        # plt.legend()
-        # plt.title(f'{symbols[0]} Price and Moving Average')
-        
-        # plt.subplot(2, 1, 2)
-        # plt.plot(processed_data.index, processed_data['RSI'], label='RSI')
-        # plt.axhline(y=70, color='r', linestyle='-')
-        # plt.axhline(y=30, color='g', linestyle='-')
-        # plt.legend()
-        # plt.title(f'{symbols[0]} RSI')
-        
-        # plt.tight_layout()
-        # plt.savefig('results/initial_analysis.png')
-        # plt.show()
-        
-        # print("Basic analysis completed!")
+    print(f"Processing data for {symbol}...")
+    processed_data = create_features(data[symbol[0]])
         
     # 2. Train ML models for prediction
-    print("\n==== TRAINING PREDICTIVE MODELS ====")
+    print("\n==== FETCHING AND TRAINING PREDICTIVE MODELS ====")
     model_results = {}
+
+    print(f"\nTraining models for {symbol}...")
+    model_results[symbol] = train_models(symbol, start_date, end_date, 
+                                        lookback=63, forecast_horizon=5, epochs=1)
     
-    for symbol in symbols:
-        print(f"\nTraining models for {symbol}...")
-        model_results[symbol] = train_models(symbol, start_date, end_date, 
-                                            lookback=63, forecast_horizon=5, epochs=1)
-    
-    
-    # 3. Create Reinforcement Learning agent
+    # 2. Create Reinforcement Learning agent
     print("\n==== TRAINING RL TRADING AGENT ====")
     # Use the first symbol for RL demonstration
-    symbol = symbols[0]
     df = processed_data.copy()
     
     # Prepare environment
@@ -156,11 +115,8 @@ def main():
     plt.savefig('results/rl_training.png')
     plt.show()
     
-    # 4. Generate combined trading signals
+    # 3. Generate combined trading signals
     print("\n==== GENERATING COMBINED SIGNALS ====")
-    
-    # Use the models to generate signals for the test period
-    symbol = symbols[0]
     
     # Load ML model signals
     ml_signals = pd.read_csv(f'models/{symbol}_signals.csv')
@@ -217,7 +173,7 @@ def main():
     # Discretize combined signal
     test_data['Final_Signal'] = np.sign(test_data['Combined_Signal'])
     
-    # 5. Backtest the strategy
+    # 4. Backtest the strategy
     print("\n==== BACKTESTING STRATEGY ====")
     
     # Initialize backtester
@@ -241,30 +197,7 @@ def main():
     backtester.print_summary()
     backtester.plot_results()
     
-    # 6. Feature importance and explainability
-    print("\n==== MODEL EXPLAINABILITY ====")
-    
-    # For tree-based models
-    if 'random_forest' in model_results[symbol]['models']:
-        rf_model = model_results[symbol]['models']['random_forest']['trainer'].model
-        
-        # Extract feature names from processed data
-        feature_names = processed_data.columns.tolist()
-        
-        # Get feature importance from the processor
-        processor = model_results[symbol]['processor']
-        importance_df = processor.feature_importance(rf_model, feature_names)
-        
-        if importance_df is not None:
-            # Plot top 10 features
-            plt.figure(figsize=(10, 6))
-            sns.barplot(x='Importance', y='Feature', data=importance_df.head(10))
-            plt.title('Top 10 Feature Importance')
-            plt.tight_layout()
-            plt.savefig('results/feature_importance.png')
-            plt.show()
-    
-    # 7. Save final model ensemble
+    # 5. Save final model ensemble
     print("\n==== SAVING FINAL MODEL ====")
     
     # Save the combined model and results

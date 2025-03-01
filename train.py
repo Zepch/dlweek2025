@@ -13,14 +13,10 @@ def calculate_risk_metrics(signals):
     """Calculate comprehensive risk metrics"""
     
     daily_returns = signals['Strategy_Return']
-    risk_free_rate = 0.02 / 252  # Assuming 2% annual risk-free rate
     
     daily_stats = {
         'mean_return': daily_returns.mean(),
         'std_return': daily_returns.std(),
-        'annualized_return': daily_returns.mean() * 252,
-        'annualized_vol': daily_returns.std() * np.sqrt(252),
-        'sharpe_ratio': (daily_returns.mean() - risk_free_rate) / daily_returns.std() * np.sqrt(252) if daily_returns.std() != 0 else np.nan,
         'total_trades': len(signals[signals['Signal'] != 0]),
         'buy_trades': len(signals[signals['Signal'] == 1]),
         'sell_trades': len(signals[signals['Signal'] == -1]),
@@ -143,15 +139,9 @@ def train_models(symbol, start_date, end_date, lookback=126, forecast_horizon=5,
     print("\nTrading Strategy Analysis:")
     metrics = calculate_risk_metrics(signals)
     print(f"\nTrading Activity:")
-    print(f"Total Trades: {metrics['total_trades']}")
     print(f"Buy Signals: {metrics['buy_trades']} ({metrics['buy_trades']/len(signals)*100:.1f}%)")
     print(f"Sell Signals: {metrics['sell_trades']} ({metrics['sell_trades']/len(signals)*100:.1f}%)")
     print(f"Hold Signals: {metrics['hold_trades']} ({metrics['hold_trades']/len(signals)*100:.1f}%)")
-    
-    print(f"\nPerformance Metrics:")
-    print(f"Annualized Return: {metrics['annualized_return']*100:.2f}%")
-    print(f"Annualized Volatility: {metrics['annualized_vol']*100:.2f}%")
-    print(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
 
     # Save results
     os.makedirs('models', exist_ok=True)

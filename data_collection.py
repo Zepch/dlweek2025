@@ -5,24 +5,11 @@ import numpy as np
 from datetime import datetime, timedelta
 
 def fetch_market_data(symbols, start_date, end_date, interval='1d'):
-    """
-    Fetch historical market data for given symbols
-    
-    Args:
-        symbols: List of ticker symbols
-        start_date: Start date for historical data
-        end_date: End date for historical data
-        interval: Data frequency ('1d', '1h', etc.)
-    
-    Returns:
-        Dict of DataFrames with OHLCV data
-    """
     data = {}
     for symbol in symbols:
         try:
             ticker = yf.Ticker(symbol)
             df = ticker.history(start=start_date, end=end_date, interval=interval)
-            
             # Basic data cleaning
             df = df.dropna()
             data[symbol] = df
@@ -38,7 +25,7 @@ def create_features(df):
     """
     # Copy the dataframe to avoid modifying original
     data = df.copy()
-    data = data.drop(columns=['Dividends', 'Stock Splits'])
+    # data = data.drop(columns=['Dividends', 'Stock Splits'])
     
     # Technical indicators
     # Moving averages

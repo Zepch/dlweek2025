@@ -28,7 +28,7 @@ class FeatureProcessor:
             outliers = (abs(z_scores) > threshold)
             
             if outliers.sum() > 0:
-                print(f"Found {outliers.sum()} outliers in column {column}")
+                # print(f"Found {outliers.sum()} outliers in column {column}")
                 
                 # Cap the outliers
                 upper_bound = mean + threshold * std

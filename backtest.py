@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 class SimpleBacktester:
     def __init__(self, data, initial_capital=10000):
         self.data = data
+        print(self.data)
         self.initial_capital = initial_capital
         self.position = 0
         self.capital = initial_capital
