@@ -9,7 +9,27 @@ import matplotlib.pyplot as plt
 import joblib
 import os
 
-def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
+def calculate_risk_metrics(signals):
+    """Calculate comprehensive risk metrics"""
+    
+    daily_returns = signals['Strategy_Return']
+    risk_free_rate = 0.02 / 252  # Assuming 2% annual risk-free rate
+    
+    daily_stats = {
+        'mean_return': daily_returns.mean(),
+        'std_return': daily_returns.std(),
+        'annualized_return': daily_returns.mean() * 252,
+        'annualized_vol': daily_returns.std() * np.sqrt(252),
+        'sharpe_ratio': (daily_returns.mean() - risk_free_rate) / daily_returns.std() * np.sqrt(252) if daily_returns.std() != 0 else np.nan,
+        'total_trades': len(signals[signals['Signal'] != 0]),
+        'buy_trades': len(signals[signals['Signal'] == 1]),
+        'sell_trades': len(signals[signals['Signal'] == -1]),
+        'hold_trades': len(signals[signals['Signal'] == 0])
+    }
+    
+    return daily_stats
+
+def train_models(symbol, start_date, end_date, lookback=126, forecast_horizon=5, epochs=50):
     """
     End-to-end training pipeline for multiple models
     """
@@ -23,30 +43,6 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
     # 2. Create technical features
     print("Creating technical features...")
     df = create_features(data_dict[symbol])
-    
-    # 3. Add sentiment features (if available)
-    try:
-        sentiment = SentimentAnalyzer()
-        news_data = sentiment.fetch_news(symbol, start_date, end_date)
-        sentiment_df = sentiment.analyze_sentiment(news_data)
-        
-        # Convert date to datetime for merging and normalize timezone
-        sentiment_df['date'] = pd.to_datetime(sentiment_df['date']).dt.tz_localize(None)
-        
-        # Merge with price data
-        df = df.reset_index()
-        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)  # Normalize timezone
-        
-        # Use concat instead of merge
-        sentiment_df.set_index('date', inplace=True)
-        df.set_index('Date', inplace=True)
-        df = pd.concat([df, sentiment_df], axis=1)
-        
-        # Fill missing sentiment values
-        df[['sentiment_mean', 'sentiment_std', 'sentiment_count']] = df[['sentiment_mean', 'sentiment_std', 'sentiment_count']].fillna(method='ffill')
-        
-    except Exception as e:
-        print(f"Skipping sentiment analysis due to: {str(e)}")
     
     # 4. Prepare features and target for ML
     print("Preparing features for machine learning...")
@@ -69,53 +65,94 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
     
     # 6. Train multiple models
     models = {}
-    model_types = ['lstm', 'transformer', 'random_forest', 'gradient_boosting']
+    model_types = ['gru', 'transformer', 'random_forest', 'xgboost']
+    # model_types = ['gru']
     
     for model_type in model_types:
-        print(f"Training {model_type} model...")
+        print(f"\nTraining {model_type} model...")
         input_dim = X_train.shape[2]  # Number of features
         
         trainer = ModelTrainer(model_type=model_type)
         trainer.build_model(input_dim=input_dim)
         
-        trainer.train(X_train, y_train, epochs=50 if model_type in ['lstm', 'transformer'] else None)
+        # For neural models, use a specified epoch count; for others, pass None
+        trainer.train(X_train, y_train, epochs=epochs if model_type in ['gru', 'transformer'] else None)
         
         # Evaluate
         metrics = trainer.evaluate(X_test, y_test)
         print(f"{model_type} model metrics: {metrics}")
         
         # Save model and predictions
+        predictions = trainer.predict(X_test)
+        print(f"Predictions shape for {model_type}: {predictions.shape}")
         models[model_type] = {
             'trainer': trainer,
             'metrics': metrics,
-            'predictions': trainer.predict(X_test)
+            'predictions': predictions
         }
     
     # 7. Generate trading signals based on ensemble of models
-    ensemble_preds = np.zeros(len(y_test))
+    print("\n=== Generating Trading Signals ===")
+
+    # Initialize array for ensemble predictions
+    ensemble_preds = np.zeros((len(y_test)))
+    
+    # Calculate weighted average using non-negative R² scores to ignore poor models
+    print("\nEnsemble Weights based on R² scores:")
+    total_weight = 0
     for model_type, model_info in models.items():
-        # Apply different weights based on model performance
-        # Here we use a simple approach, but this could be optimized
-        weight = 1.0
-        if 'direction_accuracy' in model_info['metrics']:
-            weight = model_info['metrics']['direction_accuracy']
-        elif 'accuracy' in model_info['metrics']:
-            weight = model_info['metrics']['accuracy']
+        r2_value = abs(model_info['metrics']['r2'])
+        # Set weight to 0 if negative; otherwise use the r2 value
+        weight = r2_value
+        total_weight += weight
+        print(f"{model_type}: R² = {r2_value:.4f}, weight = {weight:.4f}")
         
-        preds = model_info['predictions'].flatten()
-        ensemble_preds += weight * preds
+        pred = model_info['predictions']
+        pred = pred.flatten()
+        ensemble_preds += (weight * pred)/total_weight
     
-    # Normalize weights
-    ensemble_preds = ensemble_preds / sum(weight for model_type, model_info in models.items())
-    
-    # Convert predictions to trading signals
+    print("\nPrediction shapes:")
+    print(f"Ensemble predictions shape: {ensemble_preds.shape}")
+    print(f"Target shape: {y_test.shape}")
+
+    # Create signals DataFrame with expanded metrics
     signals = pd.DataFrame({
         'Date': dates_test,
-        'Actual': y_test,
-        'Predicted': ensemble_preds,
-        'Signal': np.where(ensemble_preds > 0, 1, -1)  # 1 for buy, -1 for sell
+        'Current_Close': df.loc[dates_test, 'Close'].values,
+        'Actual_Return': y_test,  # First day's return
+        'Predicted_Return': ensemble_preds,  # First day's prediction
     })
     
+    # Generate trading signals with thresholds
+    threshold = 0.02
+    signals['Signal'] = np.select(
+        [
+            ensemble_preds[:] > threshold,     # buy signal
+            ensemble_preds[:] < -threshold,    # sell signal
+        ],
+        [1, -1],                    
+        default=0                    # Hold signal
+    )
+    print(signals)
+    # Calculate strategy returns
+    signals['Strategy_Return'] = signals['Signal'].shift(1) * signals['Actual_Return']
+    signals.loc[signals['Signal'].shift(1) == 0, 'Strategy_Return'] = 0
+    signals['Cumulative_Return'] = (1 + signals['Strategy_Return']).cumprod()
+
+    # Print detailed trading summary
+    print("\nTrading Strategy Analysis:")
+    metrics = calculate_risk_metrics(signals)
+    print(f"\nTrading Activity:")
+    print(f"Total Trades: {metrics['total_trades']}")
+    print(f"Buy Signals: {metrics['buy_trades']} ({metrics['buy_trades']/len(signals)*100:.1f}%)")
+    print(f"Sell Signals: {metrics['sell_trades']} ({metrics['sell_trades']/len(signals)*100:.1f}%)")
+    print(f"Hold Signals: {metrics['hold_trades']} ({metrics['hold_trades']/len(signals)*100:.1f}%)")
+    
+    print(f"\nPerformance Metrics:")
+    print(f"Annualized Return: {metrics['annualized_return']*100:.2f}%")
+    print(f"Annualized Volatility: {metrics['annualized_vol']*100:.2f}%")
+    print(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
+
     # Save results
     os.makedirs('models', exist_ok=True)
     joblib.dump(processor, f'models/{symbol}_processor.pkl')
@@ -126,17 +163,18 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
     
     signals.to_csv(f'models/{symbol}_signals.csv')
     
-        # Plot predictions vs actual
+    # Plot predictions vs actual returns
     plt.figure(figsize=(12, 6))
-    plt.plot(signals['Date'], signals['Actual'], label='Actual Returns', alpha=0.7)
-    plt.plot(signals['Date'], signals['Predicted'], label='Predicted Returns', color='red', linestyle='--')
+    plt.plot(signals['Date'], signals['Actual_Return'], label='Actual Returns', alpha=0.7)
+    plt.plot(signals['Date'], signals['Predicted_Return'], label='Predicted Returns', color='red', linestyle='--')
     plt.title(f'{symbol} Actual vs Predicted Returns')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(f'{symbol}_predictions.png')
-    plt.close()  # Close to prevent display in notebooksreturn 
-    {
+    plt.close()  # Close to prevent display in notebooks
+    
+    return {
         'models': models,
         'signals': signals,
         'processor': processor

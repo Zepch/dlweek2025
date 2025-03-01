@@ -38,6 +38,7 @@ def create_features(df):
     """
     # Copy the dataframe to avoid modifying original
     data = df.copy()
+    data = data.drop(columns=['Dividends', 'Stock Splits'])
     
     # Technical indicators
     # Moving averages
