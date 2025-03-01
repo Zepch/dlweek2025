@@ -1,0 +1,15 @@
+{
+    "sequence_length": 60,
+    "epochs": 50,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "dropout_rate": 0.2,
+    "lstm_units": 50,
+    "transformer_layers": 2,
+    "transformer_heads": 8,
+    "transformer_dim": 64,
+    "rl_gamma": 0.95,
+    "rl_epsilon": 1.0,
+    "rl_epsilon_decay": 0.995,
+    "rl_epsilon_min": 0.01
+}
