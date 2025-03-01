@@ -6,6 +6,7 @@ from sentiment_analysis import SentimentAnalyzer
 from reinforcement_learning import DQNAgent, TradingEnvironment
 from backtest import SimpleBacktester
 from train import train_models
+from data_quality import DataQualityCheck
 
 import pandas as pd
 import numpy as np
@@ -35,6 +36,16 @@ def main():
     if symbols[0] in data:
         print(f"Processing data for {symbols[0]}...")
         processed_data = create_features(data[symbols[0]])
+        
+        # Data quality check
+        data_quality = DataQualityCheck()
+        print("\n==== PERFORMING DATA QUALITY CHECK ====")
+        quality_report = data_quality.check_dataframe(processed_data, name="Processed Data")
+        if data_quality.issues_found:
+            print("Fixing data quality issues...")
+            processed_data = data_quality.fix_dataframe(processed_data, impute_method='mean', inplace=False)
+            print("Data quality issues fixed.")
+            data_quality.visualize_missing_data(processed_data)
         
         # Display the first few rows
         print(processed_data.head())

@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.impute import SimpleImputer
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -51,6 +52,7 @@ class HybridModel:
 
 class ModelTrainer:
     def __init__(self, model_type='lstm', device='cpu'):
+        self.imputer = SimpleImputer(strategy='mean')
         self.model_type = model_type
         self.device = torch.device(device if torch.cuda.is_available() and device=='cuda' else 'cpu')
         self.model = None
@@ -113,7 +115,16 @@ class ModelTrainer:
         else:  # For sklearn models
             # For classification, convert continuous targets to binary (up/down)
             y_binary = (y_train > 0).astype(int)
-            self.model.fit(X_train.reshape(X_train.shape[0], -1), y_binary)
+            
+            # Reshape the data
+            X_reshaped = X_train.reshape(X_train.shape[0], -1)
+            
+            # Check for and handle NaN values
+            if np.isnan(X_reshaped).any():
+                print(f"Detected {np.isnan(X_reshaped).sum()} NaN values in training data. Imputing...")
+                X_reshaped = self.imputer.fit_transform(X_reshaped)
+            
+            self.model.fit(X_reshaped, y_binary)
     
     def predict(self, X):
         if self.model_type in ['lstm', 'transformer']:
@@ -123,7 +134,13 @@ class ModelTrainer:
                 predictions = self.model(X_tensor).cpu().numpy()
             return predictions
         else:
-            return self.model.predict_proba(X.reshape(X.shape[0], -1))[:, 1]
+            X_reshaped = X.reshape(X.shape[0], -1)
+            
+            # Handle NaN values in prediction data
+            if np.isnan(X_reshaped).any():
+                X_reshaped = self.imputer.transform(X_reshaped)
+                
+            return self.model.predict_proba(X_reshaped)[:, 1]
     
     def evaluate(self, X_test, y_test):
         predictions = self.predict(X_test)

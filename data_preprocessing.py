@@ -19,8 +19,10 @@ class FeatureProcessor:
         feature_columns = []
         for col in df.columns:
             # Only include columns that can be converted to float
-            if pd.api.types.is_numeric_dtype(df[col]) and col not in ['Volume']:
+            if pd.api.types.is_numeric_dtype(df[col]) and not pd.api.types.is_datetime64_dtype(df[col]) and col not in ['Volume']:
                 feature_columns.append(col)
+        
+        print(f"Using features: {feature_columns}")
         
         print(f"Using features: {feature_columns}")
         

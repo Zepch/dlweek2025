@@ -58,6 +58,15 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
     
     print(f"Training data shape: {X_train.shape}, Test data shape: {X_test.shape}")
     
+    # Check for NaN values in the entire dataset
+    if np.isnan(X_train).any() or np.isnan(y_train).any():
+        print(f"Warning: Training data contains {np.isnan(X_train).sum()} NaN values in X_train and {np.isnan(y_train).sum()} NaN values in y_train")
+        
+        # Handle NaN values in y_train (if any)
+        if np.isnan(y_train).any():
+            y_train = np.nan_to_num(y_train, nan=0.0)
+            print("Replaced NaN values in y_train with 0.0")
+    
     # 6. Train multiple models
     models = {}
     model_types = ['lstm', 'transformer', 'random_forest', 'gradient_boosting']
