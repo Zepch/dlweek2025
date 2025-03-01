@@ -20,7 +20,7 @@ import seaborn as sns
 
 def main():
     # Define parameters
-    symbols = ['AAPL']
+    symbols = ['SPY']
     start_date = '2018-01-01'  # Extended training period
     end_date = '2023-01-01'
     
@@ -169,14 +169,14 @@ def main():
     
     # Generate RL signals on the same test data
     test_data = processed_data.loc[ml_signals.index]
-    
+
     # Use the trained agent to generate signals
     rl_signals = []
-    
+
     env = TradingEnvironment(df=test_data)
     state = env.reset()
     done = False
-    
+
     while not done:
         action = agent.act(state)  # 0=hold, 1=buy, 2=sell
         next_state, _, done, _ = env.step(action)
@@ -191,6 +191,17 @@ def main():
             
         rl_signals.append(signal)
         state = next_state
+
+    # Make sure rl_signals is the same length as the test data
+    while len(rl_signals) < len(test_data):
+        rl_signals.append(0)  # Append hold signals if needed
+        
+    # If there are too many signals, trim the list
+    if len(rl_signals) > len(test_data):
+        rl_signals = rl_signals[:len(test_data)]
+
+    # Now assign the signals
+    test_data['RL_Signal'] = rl_signals
     
     # Combine ML and RL signals
     test_data['ML_Signal'] = ml_signals['Signal'].values

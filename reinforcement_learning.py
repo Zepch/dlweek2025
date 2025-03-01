@@ -57,11 +57,11 @@ class DQNAgent:
         if len(valid_batch) == 0:
             return  # Skip this batch if no valid transitions
         
-        states = torch.FloatTensor([i[0] for i in valid_batch])
-        actions = torch.LongTensor([i[1] for i in valid_batch])
-        rewards = torch.FloatTensor([i[2] for i in valid_batch])
-        next_states = torch.FloatTensor([i[3] for i in valid_batch])
-        dones = torch.FloatTensor([i[4] for i in valid_batch])
+        states = torch.FloatTensor(np.array([i[0] for i in valid_batch]))
+        actions = torch.LongTensor(np.array([i[1] for i in valid_batch]))
+        rewards = torch.FloatTensor(np.array([i[2] for i in valid_batch]))
+        next_states = torch.FloatTensor(np.array([i[3] for i in valid_batch]))
+        dones = torch.FloatTensor(np.array([i[4] for i in valid_batch]))
         
         # Q(s_t, a)
         state_action_values = self.model(states).gather(1, actions.unsqueeze(1))
@@ -126,26 +126,24 @@ class TradingEnvironment:
         reward = 0
         
         if action == 1 and self.position == 0:  # Buy
-            shares = self.balance / current_price
-            cost = shares * current_price * (1 + self.transaction_fee)
-            if cost <= self.balance:
-                self.position = 1
-                self.balance -= cost
-                reward = 0  # Neutral reward for opening position
-            else:
-                reward = -1  # Penalty for invalid action
+            self.position = 1
+            cost = current_price * (1 + self.transaction_fee)
+            self.balance -= cost
+            reward = 0  # Neutral reward for opening position
                 
         elif action == 2 and self.position == 1:  # Sell
-            next_price = self.df.iloc[min(self.current_step + 1, len(self.df) - 1)]['Close']
-            price_change = (next_price - current_price) / current_price
-            reward = -price_change  # Negative reward for selling before price increase
             self.position = 0
-            self.balance += current_price * (1 - self.transaction_fee)
-            
-        elif self.position == 1:  # Hold with position
-            next_price = self.df.iloc[min(self.current_step + 1, len(self.df) - 1)]['Close']
-            price_change = (next_price - current_price) / current_price
-            reward = price_change
+            sale_value = current_price * (1 - self.transaction_fee)
+            self.balance += sale_value
+            reward = 0  # Neutral reward for closing position
+        
+        # Apply price change to position if we're holding
+        if self.position == 1:
+            next_step = min(self.current_step + 1, len(self.df) - 1)
+            if next_step > self.current_step:  # Make sure we're not at the end
+                next_price = self.df.iloc[next_step]['Close']
+                price_change = (next_price - current_price) / current_price
+                reward = price_change * 100  # Scale reward for better learning
         
         # Update step and check if done
         self.current_step += 1
