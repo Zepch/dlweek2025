@@ -45,7 +45,7 @@ class DQNAgent:
         act_values = self.model(state)
         return torch.argmax(act_values[0]).item()
 
-        def replay(self, batch_size):
+    def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
         
