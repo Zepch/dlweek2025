@@ -126,15 +126,16 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
     
     signals.to_csv(f'models/{symbol}_signals.csv')
     
-    # Plot predictions vs actual
+        # Plot predictions vs actual
     plt.figure(figsize=(12, 6))
-    plt.plot(signals['Date'], signals['Actual'], label='Actual Returns')
-    plt.plot(signals['Date'], signals['Predicted'], label='Predicted Returns')
+    plt.plot(signals['Date'], signals['Actual'], label='Actual Returns', alpha=0.7)
+    plt.plot(signals['Date'], signals['Predicted'], label='Predicted Returns', color='red', linestyle='--')
     plt.title(f'{symbol} Actual vs Predicted Returns')
     plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
     plt.savefig(f'{symbol}_predictions.png')
-    
-    return {
+    plt.close()  # Close to prevent display in notebooksreturn {
         'models': models,
         'signals': signals,
         'processor': processor
