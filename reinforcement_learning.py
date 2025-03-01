@@ -88,3 +88,77 @@ class DQNAgent:
         # Decay epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
+class TradingEnvironment:
+    def __init__(self, df, initial_balance=10000, transaction_fee=0.001):
+        self.df = df
+        self.initial_balance = initial_balance
+        self.transaction_fee = transaction_fee
+        self.reset()
+        
+    def reset(self):
+        self.current_step = 0
+        self.balance = self.initial_balance
+        self.position = 0  # 0: no position, 1: long position
+        self.portfolio_value = [self.initial_balance]
+        
+        return self._get_state()
+    
+    def _get_state(self):
+        # Return the current state (features + position + balance)
+        if self.current_step >= len(self.df):
+            return None
+            
+        # Get current row of features
+        features = self.df.iloc[self.current_step].values
+        
+        # Add position and balance to state
+        position_balance = np.array([self.position, self.balance / self.initial_balance])
+        state = np.concatenate([features, position_balance])
+        
+        return state
+        
+    def step(self, action):
+        # 0 = hold, 1 = buy, 2 = sell
+        current_price = self.df.iloc[self.current_step]['Close']
+        
+        # Calculate reward based on action
+        reward = 0
+        
+        if action == 1 and self.position == 0:  # Buy
+            shares = self.balance / current_price
+            cost = shares * current_price * (1 + self.transaction_fee)
+            if cost <= self.balance:
+                self.position = 1
+                self.balance -= cost
+                reward = 0  # Neutral reward for opening position
+            else:
+                reward = -1  # Penalty for invalid action
+                
+        elif action == 2 and self.position == 1:  # Sell
+            next_price = self.df.iloc[min(self.current_step + 1, len(self.df) - 1)]['Close']
+            price_change = (next_price - current_price) / current_price
+            reward = -price_change  # Negative reward for selling before price increase
+            self.position = 0
+            self.balance += current_price * (1 - self.transaction_fee)
+            
+        elif self.position == 1:  # Hold with position
+            next_price = self.df.iloc[min(self.current_step + 1, len(self.df) - 1)]['Close']
+            price_change = (next_price - current_price) / current_price
+            reward = price_change
+        
+        # Update step and check if done
+        self.current_step += 1
+        done = self.current_step >= len(self.df) - 1
+        
+        # Calculate portfolio value
+        portfolio_value = self.balance
+        if self.position == 1:
+            portfolio_value += current_price
+        self.portfolio_value.append(portfolio_value)
+        
+        # Return next state, reward, done flag, and info
+        next_state = self._get_state() if not done else None
+        info = {'portfolio_value': portfolio_value}
+        
+        return next_state, reward, done, info
