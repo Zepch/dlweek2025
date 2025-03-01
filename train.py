@@ -31,7 +31,7 @@ def train_models(symbol, start_date, end_date, lookback=126, forecast_horizon=5,
     """
     # 1. Fetch market data
     print(f"Fetching data for {symbol}...")
-    data_dict = fetch_market_data([symbol], start_date, end_date)
+    data_dict = fetch_market_data(symbol, start_date, end_date)
     if symbol not in data_dict:
         print(f"Error: Could not fetch data for {symbol}")
         return None
@@ -97,7 +97,7 @@ def train_models(symbol, start_date, end_date, lookback=126, forecast_horizon=5,
     print("\nEnsemble Weights based on R² scores:")
     total_weight = 0
     for model_type, model_info in models.items():
-        r2_value = abs(model_info['metrics']['r2'])
+        r2_value = model_info['metrics']['r2']
         # Set weight to 0 if negative; otherwise use the r2 value
         weight = r2_value
         total_weight += weight

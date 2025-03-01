@@ -22,7 +22,7 @@ def main():
     # Define parameters
     symbol = 'AAPL'
     start_date = '2018-01-01'  # Extended training period
-    end_date = '2023-01-01'
+    end_date = '2025-01-01'
     
     # Create output directories
     os.makedirs('models', exist_ok=True)
@@ -33,7 +33,7 @@ def main():
     data = fetch_market_data(symbol, start_date, end_date)
     
     print(f"Processing data for {symbol}...")
-    processed_data = create_features(data[symbol[0]])
+    processed_data = create_features(data[symbol])
         
     # 2. Train ML models for prediction
     print("\n==== FETCHING AND TRAINING PREDICTIVE MODELS ====")
@@ -41,7 +41,7 @@ def main():
 
     print(f"\nTraining models for {symbol}...")
     model_results[symbol] = train_models(symbol, start_date, end_date, 
-                                        lookback=63, forecast_horizon=5, epochs=1)
+                                        lookback=63, forecast_horizon=5, epochs=50)
     
     # 2. Create Reinforcement Learning agent
     print("\n==== TRAINING RL TRADING AGENT ====")
@@ -57,8 +57,9 @@ def main():
     env = TradingEnvironment(df=df)
     
     # Training parameters
-    batch_size = 32
-    num_episodes = 100
+    batch_size = 64
+    num_episodes = 500
+    save_interval = 100
     
     # Training loop
     episode_rewards = []
@@ -96,6 +97,9 @@ def main():
         
         if episode % 10 == 0:
             print(f"Episode {episode}, Total reward: {total_reward:.4f}, Portfolio value: {env.portfolio_value[-1]:.2f}")
+
+        if episode % save_interval == 0:
+            agent.save_models()
     
     # Plot RL training progress
     plt.figure(figsize=(12, 6))

@@ -7,6 +7,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import random
 from collections import deque
+import os
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
@@ -26,7 +27,11 @@ class DQNAgent:
         model = nn.Sequential(
             nn.Linear(self.state_size, 64),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
             nn.ReLU(),
             nn.Linear(64, self.action_size)
         )
@@ -88,6 +93,46 @@ class DQNAgent:
         # Decay epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
+    def save_models(self, path='models'):
+        
+        # Save main model
+        main_model_path = f"{path}/rl_main.pth"
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'epsilon': self.epsilon,
+            'memory': self.memory
+        }, main_model_path)
+        
+        # Save target model
+        target_model_path = f"{path}/rl_target.pth"
+        torch.save({
+            'model_state_dict': self.target_model.state_dict()
+        }, target_model_path)
+        
+        print(f"Models saved to {path}/rl_*.pth")
+
+    def load_models(self, path='models'):
+
+        # Load main model
+        main_model_path = f"{path}/rl_main.pth"
+        if os.path.exists(main_model_path):
+            checkpoint = torch.load(main_model_path)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.epsilon = checkpoint['epsilon']
+            self.memory = checkpoint['memory']
+            
+        # Load target model
+        target_model_path = f"{path}/rl_target.pth"
+        if os.path.exists(target_model_path):
+            checkpoint = torch.load(target_model_path)
+            self.target_model.load_state_dict(checkpoint['model_state_dict'])
+            
+        self.model.eval()
+        self.target_model.eval()
+        print(f"Models loaded from {path}/rl_*.pth")
 
 class TradingEnvironment:
     def __init__(self, df, initial_balance=10000, transaction_fee=0.001):
