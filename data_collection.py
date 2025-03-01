@@ -32,7 +32,7 @@ def fetch_market_data(symbols, start_date, end_date, interval='1d'):
     
     return data
 
-def create_features(df):
+def create_features(df, min_periods=14):
     """
     Generate technical indicators and features
     """
@@ -41,8 +41,8 @@ def create_features(df):
     
     # Technical indicators
     # Moving averages
-    data['MA_5'] = data['Close'].rolling(window=5).mean()
-    data['MA_20'] = data['Close'].rolling(window=20).mean()
+    data['MA_5'] = data['Close'].rolling(window=5, min_periods=1).mean()
+    data['MA_20'] = data['Close'].rolling(window=20, min_periods=1).mean()
     
     # MACD
     data['EMA_12'] = data['Close'].ewm(span=12, adjust=False).mean()
@@ -54,6 +54,8 @@ def create_features(df):
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    # Add small epsilon to prevent division by zero
+    loss = loss.replace(0, 1e-10)  
     rs = gain / loss
     data['RSI'] = 100 - (100 / (1 + rs))
     

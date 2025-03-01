@@ -6,6 +6,7 @@ from sentiment_analysis import SentimentAnalyzer
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 import joblib
 import os
 
@@ -37,16 +38,31 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
         df = df.reset_index()
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)  # Normalize timezone
         
-        # Use concat instead of merge
-        sentiment_df.set_index('date', inplace=True)
+        # Convert back to DatetimeIndex if needed
+        df = df.reset_index()
+        sentiment_df = sentiment_df.reset_index()
+
+        # Rename columns for clarity
+        sentiment_df = sentiment_df.rename(columns={'date': 'Date'})
+
+        # Use merge instead of concat
+        df = pd.merge(df, sentiment_df, on='Date', how='left')
+
+        # Set Date as index again
         df.set_index('Date', inplace=True)
-        df = pd.concat([df, sentiment_df], axis=1)
         
         # Fill missing sentiment values
         df[['sentiment_mean', 'sentiment_std', 'sentiment_count']] = df[['sentiment_mean', 'sentiment_std', 'sentiment_count']].fillna(method='ffill')
-        
+    
     except Exception as e:
         print(f"Skipping sentiment analysis due to: {str(e)}")
+    
+    # Print feature correlation matrix and drop highly correlated features
+    correlation_matrix = df.corr()
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(correlation_matrix, annot=False, cmap='coolwarm')
+    plt.title('Feature Correlation Matrix')
+    plt.savefig(f'results/{symbol}_correlation_matrix.png')
     
     # 4. Prepare features and target for ML
     print("Preparing features for machine learning...")
@@ -66,6 +82,12 @@ def train_models(symbol, start_date, end_date, lookback=60, forecast_horizon=5):
         if np.isnan(y_train).any():
             y_train = np.nan_to_num(y_train, nan=0.0)
             print("Replaced NaN values in y_train with 0.0")
+    
+    # Count NaNs per feature
+    nan_counts = np.isnan(X_train).sum(axis=0).sum(axis=0)
+    for i, count in enumerate(nan_counts):
+        if count > 0:
+            print(f"Feature {i} has {count} NaN values")
     
     # 6. Train multiple models
     models = {}

@@ -112,3 +112,25 @@ class FeatureProcessor:
             return importance_df
         else:
             return None
+
+    def clean_sequences(self, X, y, dates):
+        """Clean NaN values from sequences"""
+        # Find rows without NaN values
+        valid_indices = ~np.isnan(X).any(axis=(1, 2)) & ~np.isnan(y)
+        
+        # Print diagnostics
+        total_samples = len(X)
+        valid_samples = valid_indices.sum()
+        print(f"Total samples: {total_samples}, Valid samples: {valid_samples}")
+        print(f"Removing {total_samples - valid_samples} samples with NaN values ({((total_samples - valid_samples) / total_samples) * 100:.2f}%)")
+        
+        # Filter data
+        X_clean = X[valid_indices]
+        y_clean = y[valid_indices]
+        
+        # Filter dates if they exist
+        if dates is not None:
+            dates_clean = [dates[i] for i in range(len(dates)) if valid_indices[i]]
+            return X_clean, y_clean, dates_clean
+        
+        return X_clean, y_clean, None
