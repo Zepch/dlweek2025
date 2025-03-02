@@ -8,7 +8,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.linear_model import LinearRegression  # Add this import at the top
+import joblib
 
 ##############################################
 # GRU Model (Advanced Alternative to LSTM)  #
@@ -207,12 +207,19 @@ class ModelTrainer:
                     if patience_counter >= max_patience:
                         print(f"Early stopping triggered at epoch {epoch+1}")
                         break
+            torch.save(self.model.state_dict(), f'models/{self.model_type}_model', _use_new_zipfile_serialization=True)
+
         else:
             # For non-neural network models, reshape and impute if needed
             X_reshaped = X_train.reshape(X_train.shape[0], -1)
             if np.isnan(X_reshaped).any():
                 X_reshaped = self.imputer.fit_transform(X_reshaped)
             self.model.fit(X_reshaped, y_train)
+            if self.model_type == 'random_forest':
+                joblib.dump(self.model, f'models/{self.model_type}_model.joblib')
+            elif self.model_type == 'xgboost':
+                self.model.save_model(f'models/{self.model_type}_model.json')
+
     
     def predict(self, X):
         if self.model_type in ['gru', 'transformer']:

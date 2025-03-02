@@ -1,57 +1,29 @@
-1. Architecture Overview
-I propose a hybrid architecture with three main components:
-Market Data → Feature Engineering → ML Pipeline → Trading Decisions → Performance Evaluation
+Slide file: https://drive.google.com/file/d/1A5wq3r8iJqR9m1Ez3HCXsF3MxWuuXNZR/view?usp=drive_link
+Please try the code by running:
 
-Core Components:
-Multi-modal Input Processing
+```bash
+pip install -r requirements.txt
+python main.py
+```
+### Backtest Result:
 
-Price data (OHLCV)
-Market microstructure (order book data)
-Sentiment analysis from news/social media
-Macroeconomic indicators
-Hierarchical Temporal Learning
+#### ML Model Signals Backtest: 
+* Total Return: 21.94% 
+* Annualized Return: 16.15% 
+* Sharpe Ratio: 1.10 
+* Maximum Drawdown: -8.30% 
+* Total Trades: 6
+  
+#### RL Agent Signals Backtest: 
+* Total Return: 47.51% 
+* Annualized Return: 34.09% 
+* Sharpe Ratio: 1.38 
+* Maximum Drawdown: -14.90% 
+* Total Trades: 21 
 
-Short-term patterns: LSTM/GRU networks
-Long-term dependencies: Transformer architecture
-Regime detection: Hidden Markov Models
-Adaptive Decision System
-
-Reinforcement Learning agent for position sizing and timing
-Risk-adjusted reward function with portfolio constraints
-
-
-2. Technical Implementation
-Data Pipeline:
-Model Architecture:
-3. Key Innovations
-Adaptive Risk Management
-
-Dynamic Kelly criterion for position sizing
-Volatility-adjusted stop losses
-Drawdown-sensitive exposure control
-Continual Learning Framework
-
-Sliding window retraining with exponential weighting
-Catastrophic forgetting prevention using elastic weight consolidation
-Market regime detection for model selection
-Explainability Layer
-
-SHAP values to interpret feature importance
-Attention visualization for critical patterns
-Counterfactual analysis for decision validation
-4. Backtesting & Evaluation
-Walk-forward optimization with proper time series validation
-Monte Carlo simulation for robustness testing
-Benchmark against traditional strategies and market indices
-Performance metrics: Sharpe ratio, maximum drawdown, recovery time, win rate
-5. Implementation Roadmap
-Data collection and preprocessing pipeline
-Feature engineering and selection
-Base model development and training
-Reinforcement learning integration
-Backtesting framework implementation
-Hyperparameter optimization
-Risk management integration
-Model explainability and visualization tools
-Performance evaluation against benchmarks
-Iterative improvement cycles
+#### Combined Strategy Backtest: 
+* Total Return: 40.42% 
+* Annualized Return: 29.19% 
+* Sharpe Ratio: 1.44 
+* Maximum Drawdown: -15.86% 
+* Total Trades: 33

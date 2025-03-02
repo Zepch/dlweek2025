@@ -1,12 +1,28 @@
-pandas>=1.3.0
-numpy>=1.20.0
-matplotlib>=3.4.0
-yfinance>=0.1.70
-torch>=1.9.0
-scikit-learn>=1.0.0
-seaborn>=0.11.2
-joblib>=1.0.1
-nltk>=3.6.2
-tqdm>=4.62.0
-requests>=2.26.0
-ipython>=7.29.0  # For nicer visualizations if using notebooks
+# Deep Learning
+torch>=2.0.0
+transformers>=4.30.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.28
+scikit-learn>=1.2.0
+
+# Machine Learning
+xgboost>=2.0.0
+joblib>=1.3.0
+
+# Visualization & Web Interface
+gradio>=4.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
+# Financial Analysis
+ta>=0.10.0  # Technical Analysis
+pandas-ta>=0.3.0b0
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2023.3
+tqdm>=4.65.0

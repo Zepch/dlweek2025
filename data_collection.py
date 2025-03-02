@@ -4,18 +4,17 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-def fetch_market_data(symbols, start_date, end_date, interval='1d'):
+def fetch_market_data(symbol, start_date, end_date, interval='1d'):
     data = {}
-    for symbol in symbols:
-        try:
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(start=start_date, end=end_date, interval=interval)
-            # Basic data cleaning
-            df = df.dropna()
-            data[symbol] = df
-            print(f"Successfully downloaded data for {symbol}")
-        except Exception as e:
-            print(f"Error fetching data for {symbol}: {str(e)}")
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(start=start_date, end=end_date, interval=interval)
+        # Basic data cleaning
+        df = df.dropna()
+        data[symbol] = df
+        print(f"Successfully downloaded data for {symbol}")
+    except Exception as e:
+        print(f"Error fetching data for {symbol}: {str(e)}")
     
     return data
 
@@ -25,7 +24,7 @@ def create_features(df):
     """
     # Copy the dataframe to avoid modifying original
     data = df.copy()
-    # data = data.drop(columns=['Dividends', 'Stock Splits'])
+    data = data.drop(columns=['Dividends', 'Stock Splits'])
     
     # Technical indicators
     # Moving averages
